@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  App Sandbox is OFF. LaunchServices refuses to change the user's default-handler
+	  database (LSHandlers) for sandboxed callers, so this entitlement has to be false,
+	  or the App Sandbox capability removed entirely.
+	  No other entitlements are needed. Hardened Runtime stays on, with no exceptions.
+	-->
+	<key>com.apple.security.app-sandbox</key>
+	<false/>
+</dict>
+</plist>

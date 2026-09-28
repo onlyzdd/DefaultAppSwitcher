@@ -1,0 +1,49 @@
+# XcodeGen spec. `xcodegen generate` builds DefaultAppSwitcher.xcodeproj from this file,
+# so the repo never has to commit the hard-to-diff .pbxproj.
+# XcodeGen is only a build tool (CI, or on your Mac). The app itself ships with no
+# third-party code.
+name: DefaultAppSwitcher
+
+options:
+  bundleIdPrefix: com.example            # ← change to your own reverse-DNS prefix
+  deploymentTarget:
+    macOS: "13.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.0"
+
+targets:
+  DefaultAppSwitcher:
+    type: application
+    platform: macOS
+    sources:
+      - path: DefaultAppSwitcher
+
+    # XcodeGen writes this Info.plist at generate time, using the standard app
+    # keys plus the ones below.
+    info:
+      path: Support/Info.plist
+      properties:
+        CFBundleDisplayName: Default App Switcher
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSApplicationCategoryType: public.app-category.utilities
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+
+    # App Sandbox OFF, which LaunchServices requires before it will change default handlers.
+    entitlements:
+      path: Support/DefaultAppSwitcher.entitlements
+
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.DefaultAppSwitcher
+        ENABLE_HARDENED_RUNTIME: YES
+        # Ad-hoc signing ("-") needs no Apple Developer account, so CI builds work out of
+        # the box. For Developer ID + notarization, see the commented steps in build.yml.
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "-"
+        DEVELOPMENT_TEAM: ""

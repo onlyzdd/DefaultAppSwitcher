@@ -1,0 +1,99 @@
+name: Build macOS App
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]            # pushing a tag like v1.0.0 also publishes a GitHub Release
+  pull_request:
+  workflow_dispatch:        # adds a manual "Run workflow" button
+
+permissions:
+  contents: write           # needed only by the release step
+
+jobs:
+  build:
+    runs-on: macos-15       # GitHub-hosted Apple Silicon runner with Xcode 16 preinstalled
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build (Release, universal)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project DefaultAppSwitcher.xcodeproj \
+            -scheme DefaultAppSwitcher \
+            -configuration Release \
+            -destination 'generic/platform=macOS' \
+            -derivedDataPath build \
+            ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO \
+            build
+
+      - name: Verify signature and entitlements
+        run: |
+          APP=build/Build/Products/Release/DefaultAppSwitcher.app
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          codesign -d --entitlements - "$APP"
+          lipo -info "$APP/Contents/MacOS/DefaultAppSwitcher"
+
+      # ---- Optional: Developer ID signing + notarization ------------------------------
+      # Uncomment once you add these repository secrets:
+      #   MACOS_CERT_P12 (base64 .p12), MACOS_CERT_PASSWORD, APPLE_ID,
+      #   APPLE_TEAM_ID, APPLE_APP_PASSWORD (app-specific password)
+      #
+      # - name: Sign with Developer ID and notarize
+      #   env:
+      #     CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+      #     CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+      #     APPLE_ID: ${{ secrets.APPLE_ID }}
+      #     TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      #     APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+      #   run: |
+      #     APP=build/Build/Products/Release/DefaultAppSwitcher.app
+      #     KC=$RUNNER_TEMP/build.keychain
+      #     security create-keychain -p ci "$KC"
+      #     security set-keychain-settings "$KC"
+      #     security unlock-keychain -p ci "$KC"
+      #     echo "$CERT_P12" | base64 --decode > $RUNNER_TEMP/cert.p12
+      #     security import $RUNNER_TEMP/cert.p12 -k "$KC" -P "$CERT_PASSWORD" -T /usr/bin/codesign
+      #     security set-key-partition-list -S apple-tool:,apple: -s -k ci "$KC"
+      #     security list-keychains -d user -s "$KC"
+      #     codesign --force --options runtime --timestamp \
+      #       --entitlements Support/DefaultAppSwitcher.entitlements \
+      #       --sign "Developer ID Application" "$APP"
+      #     ditto -c -k --keepParent "$APP" notarize.zip
+      #     xcrun notarytool submit notarize.zip --apple-id "$APPLE_ID" \
+      #       --team-id "$TEAM_ID" --password "$APP_PASSWORD" --wait
+      #     xcrun stapler staple "$APP"
+      # ---------------------------------------------------------------------------------
+
+      - name: Package
+        run: |
+          # ditto keeps the bundle structure and code signature intact; plain `zip` can break them.
+          ditto -c -k --keepParent \
+            build/Build/Products/Release/DefaultAppSwitcher.app \
+            DefaultAppSwitcher.zip
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DefaultAppSwitcher
+          path: DefaultAppSwitcher.zip
+          retention-days: 30
+
+      - name: Publish GitHub Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" DefaultAppSwitcher.zip --generate-notes
