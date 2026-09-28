@@ -10,7 +10,7 @@ import SwiftUI
 import AppKit
 
 struct DropZoneView: View {
-    let fileInfo: DroppedFileInfo?
+    let fileInfo: FileTypeInfo?
     let isTargeted: Bool
 
     private let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)

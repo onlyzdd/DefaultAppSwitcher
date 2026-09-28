@@ -20,7 +20,7 @@ final class FileTypeViewModel: ObservableObject {
 
     // MARK: Published state
 
-    @Published private(set) var fileInfo: DroppedFileInfo?
+    @Published private(set) var fileInfo: FileTypeInfo?
     @Published private(set) var handlers: [AppHandler] = []
     @Published private(set) var currentDefaultID: String?
     @Published private(set) var isApplying = false
@@ -112,7 +112,7 @@ final class FileTypeViewModel: ObservableObject {
 
     // MARK: Private
 
-    private func load(_ info: DroppedFileInfo) {
+    private func load(_ info: FileTypeInfo) {
         fileInfo = info
         handlers = manager.applications(for: info.contentType)
         refreshCurrentDefault()

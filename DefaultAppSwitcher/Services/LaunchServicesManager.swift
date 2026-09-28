@@ -60,12 +60,17 @@ final class LaunchServicesManager {
     private let workspace = NSWorkspace.shared
     private let fileManager = FileManager.default
 
+    // Loading an app's icon means reading its bundle from disk. The Common Types list shows
+    // the same few apps across dozens of rows, so each icon is cached by bundle path.
+    private var appIconCache: [String: NSImage] = [:]
+    private var typeIconCache: [String: NSImage] = [:]
+
     private init() {}
 
     // MARK: Identify the dropped file
 
     /// Works out the extension and UTType for a file URL.
-    func resolveFileInfo(for url: URL) throws -> DroppedFileInfo {
+    func resolveFileInfo(for url: URL) throws -> FileTypeInfo {
         // Resource values come from the file system and LaunchServices; the file's
         // contents are never read.
         let values = try url.resourceValues(forKeys: [.isDirectoryKey, .isPackageKey, .contentTypeKey])
@@ -91,7 +96,20 @@ final class LaunchServicesManager {
             throw LaunchServicesError.isApplication
         }
 
-        return DroppedFileInfo(url: url, fileExtension: ext, contentType: type)
+        return FileTypeInfo(url: url, fileExtension: ext, contentType: type)
+    }
+
+    /// Builds a FileTypeInfo from a typed or catalog extension ("txt", ".TXT", " md ").
+    /// Returns nil for an empty or invalid extension.
+    func fileTypeInfo(forExtension raw: String) -> FileTypeInfo? {
+        var ext = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        while ext.hasPrefix(".") { ext.removeFirst() }
+        guard !ext.isEmpty,
+              ext.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" || $0 == "." }),
+              let type = UTType(filenameExtension: ext),
+              !type.conforms(to: .application)
+        else { return nil }
+        return FileTypeInfo(url: nil, fileExtension: ext, contentType: type)
     }
 
     // MARK: Look up candidate apps
@@ -109,27 +127,13 @@ final class LaunchServicesManager {
         var handlers: [AppHandler] = []
 
         for url in urls {
-            // The bundle ID is the stable key LaunchServices stores in LSHandlers.
-            guard let bundleID = Bundle(url: url)?.bundleIdentifier else { continue }
+            guard let handler = makeHandler(for: url) else { continue }
 
             // The same app can be installed in more than one place (/Applications,
             // ~/Applications, a mounted DMG…). LaunchServices lists its preferred copy
             // first, so keep only the first one.
-            guard seen.insert(bundleID.lowercased()).inserted else { continue }
-
-            // icon(forFile:) returns a new NSImage each time, so resizing it is safe.
-            // 16×16 matches the standard size for menu item images.
-            let icon = workspace.icon(forFile: url.path)
-            icon.size = NSSize(width: 16, height: 16)
-
-            handlers.append(
-                AppHandler(
-                    bundleIdentifier: bundleID,
-                    name: displayName(for: url),
-                    url: url,
-                    icon: icon
-                )
-            )
+            guard seen.insert(handler.bundleIdentifier.lowercased()).inserted else { continue }
+            handlers.append(handler)
         }
 
         return handlers.sorted {
@@ -139,9 +143,22 @@ final class LaunchServicesManager {
 
     /// Bundle ID of the app that currently opens `type` by default, if there is one.
     func currentDefaultBundleID(for type: UTType) -> String? {
+        defaultApplication(for: type)?.bundleIdentifier
+    }
+
+    /// The app that currently opens `type` by default, with its name and icon.
+    func defaultApplication(for type: UTType) -> AppHandler? {
         // NSWorkspace.urlForApplication(toOpen:) wraps LSCopyDefaultRoleHandlerForContentType.
         guard let url = workspace.urlForApplication(toOpen: type) else { return nil }
-        return Bundle(url: url)?.bundleIdentifier
+        return makeHandler(for: url)
+    }
+
+    /// The system's generic document icon for a type, cached. Used by the Common Types list.
+    func documentIcon(for type: UTType) -> NSImage {
+        if let cached = typeIconCache[type.identifier] { return cached }
+        let icon = workspace.icon(for: type)
+        typeIconCache[type.identifier] = icon
+        return icon
     }
 
     // MARK: Change the default
@@ -201,6 +218,27 @@ final class LaunchServicesManager {
     }
 
     // MARK: Helpers
+
+    private func makeHandler(for appURL: URL) -> AppHandler? {
+        // The bundle ID is the stable key LaunchServices stores in LSHandlers.
+        guard let bundleID = Bundle(url: appURL)?.bundleIdentifier else { return nil }
+        return AppHandler(
+            bundleIdentifier: bundleID,
+            name: displayName(for: appURL),
+            url: appURL,
+            icon: appIcon(for: appURL)
+        )
+    }
+
+    private func appIcon(for appURL: URL) -> NSImage {
+        if let cached = appIconCache[appURL.path] { return cached }
+        // icon(forFile:) returns a new NSImage each time, so resizing it is safe.
+        // 16×16 matches the standard size for menu item images.
+        let icon = workspace.icon(forFile: appURL.path)
+        icon.size = NSSize(width: 16, height: 16)
+        appIconCache[appURL.path] = icon
+        return icon
+    }
 
     /// The app's localized, Finder-style name, without ".app".
     private func displayName(for appURL: URL) -> String {

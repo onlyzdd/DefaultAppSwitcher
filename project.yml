@@ -5,15 +5,15 @@
 name: DefaultAppSwitcher
 
 options:
-  bundleIdPrefix: com.example            # ← change to your own reverse-DNS prefix
+  bundleIdPrefix: io.github.onlyzdd
   deploymentTarget:
     macOS: "13.0"
   createIntermediateGroups: true
 
 settings:
   base:
-    MARKETING_VERSION: "1.0.0"
-    CURRENT_PROJECT_VERSION: "1"
+    MARKETING_VERSION: "1.1.0"
+    CURRENT_PROJECT_VERSION: "2"
     SWIFT_VERSION: "5.0"
 
 targets:
@@ -40,8 +40,10 @@ targets:
 
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.example.DefaultAppSwitcher
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.onlyzdd.DefaultAppSwitcher
         ENABLE_HARDENED_RUNTIME: YES
+        # App icon from DefaultAppSwitcher/Assets.xcassets/AppIcon.appiconset
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         # Ad-hoc signing ("-") needs no Apple Developer account, so CI builds work out of
         # the box. For Developer ID + notarization, see the commented steps in build.yml.
         CODE_SIGN_STYLE: Manual

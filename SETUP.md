@@ -18,20 +18,25 @@ Requires Xcode 15 or later. Minimum deployment target: macOS 13 Ventura.
 
 ## 2. Add the source files
 
-1. Delete the template's `ContentView.swift` and `DefaultAppSwitcherApp.swift` (Move to Trash).
+1. Delete the template's `ContentView.swift`, `DefaultAppSwitcherApp.swift` and `Assets.xcassets` (Move to Trash).
 2. Drag the `DefaultAppSwitcher/` source folders from this package into the project navigator.
    Check **Copy items if needed** and **Create groups**, and make sure the app target is ticked.
 
 ```
 DefaultAppSwitcher/
-├── DefaultAppSwitcherApp.swift          App entry, fixed-size single window
-├── Models/Models.swift                  DroppedFileInfo, AppHandler
-├── Services/LaunchServicesManager.swift Native LaunchServices bridge
-├── ViewModels/FileTypeViewModel.swift   UI state and actions
+├── DefaultAppSwitcherApp.swift            App entry, fixed-size single window
+├── Assets.xcassets/AppIcon.appiconset     App icon, 16–1024 px
+├── Models/Models.swift                    FileTypeInfo, AppHandler, common-types catalog
+├── Services/LaunchServicesManager.swift   Native LaunchServices bridge
+├── ViewModels/
+│   ├── FileTypeViewModel.swift            "Drop File" tab state
+│   └── CommonTypesViewModel.swift         "Common Types" tab state
 └── Views/
-    ├── ContentView.swift                Drop zone → Picker → Apply to All
-    ├── DropZoneView.swift               Hover-highlighting drop target
-    └── VisualEffectBackground.swift     Behind-window translucency
+    ├── ContentView.swift                  Segmented control switching the two tabs
+    ├── DropFileView.swift                 Drop zone → Picker → Apply to All
+    ├── DropZoneView.swift                 Hover-highlighting drop target
+    ├── CommonTypesView.swift              Extension list with per-row default-app pickers
+    └── VisualEffectBackground.swift       Behind-window translucency
 ```
 
 ## 3. Signing & Capabilities (the important part)
@@ -71,6 +76,12 @@ Optional, under **Target ▸ Info**:
 Don't add `CFBundleDocumentTypes`. This app shouldn't show up as a handler itself.
 
 ## 4. Build and run (⌘R)
+
+**Common Types tab:** about 60 everyday extensions, grouped by kind, each showing its current
+default app. Pick another app in a row's menu and the change applies at once; a ✓ confirms it.
+Type an extension that isn't listed (e.g. `.srt`) in the filter field to add it.
+
+**Drop File tab:**
 
 1. Drag a `.txt` file onto the drop zone. It shows `public.plain-text`.
 2. Pick an app in **Open with**. The current default is labelled "(default)".
